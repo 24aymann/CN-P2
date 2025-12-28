@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Declaración de variables de entorno
-AWS_REGION=       "us-east-1"
-ACCOUNT_ID=       $(aws sts get-caller-identity --query Account --output text)
-BUCKET_NAME=      "datalake-consumo-energetico-${ACCOUNT_ID}"
-ROLE_ARN=         $(aws iam get-role --role-name LabRole --query 'Role.Arn' --output text)
+AWS_REGION="us-east-1"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+BUCKET_NAME="datalake-consumo-energetico-${ACCOUNT_ID}"
+ROLE_ARN=$(aws iam get-role --role-name LabRole --query 'Role.Arn' --output text)
 
 echo "Usando Bucket: $BUCKET_NAME y Role: $ROLE_ARN"
 
@@ -128,10 +128,10 @@ aws s3 cp energy_aggregation_daily.py s3://$BUCKET_NAME/scripts/
 aws s3 cp energy_aggregation_monthly.py s3://$BUCKET_NAME/scripts/
 
 # Variables de entorno
-DATABASE=       "energy_db"
-TABLE=          "energy_consumption_five_minutes"
-DAILY_OUTPUT=   "s3://$BUCKET_NAME/processed/energy_consumption_daily/"
-MONTHLY_OUTPUT= "s3://$BUCKET_NAME/processed/energy_consumption_monthly/"
+DATABASE="energy_db"
+TABLE="energy_consumption_five_minutes"
+DAILY_OUTPUT="s3://$BUCKET_NAME/processed/energy_consumption_daily/"
+MONTHLY_OUTPUT="s3://$BUCKET_NAME/processed/energy_consumption_monthly/"
 
 # Creación de los Jobs de Glue
 aws glue create-job \
