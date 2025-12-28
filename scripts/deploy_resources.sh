@@ -172,6 +172,20 @@ aws glue create-job \
     --number-of-workers 2 \
     --worker-type "G.1X"
 
+echo ""
+echo "Esperando a que el crawler 'energy-raw-crawler' termine..."
+while true; do
+    CRAWLER_STATE=$(aws glue get-crawler --name energy-raw-crawler --query "Crawler.State" --output text)
+    echo "Estado del Crawler: $CRAWLER_STATE"
+    
+    if [ "$CRAWLER_STATE" == "READY" ]; then
+        echo "Crawler finalizado."
+        break
+    fi
+    
+    sleep 30
+done
+
 # Comenzar la ejecución de los Jobs
 aws glue start-job-run --job-name energy-daily-aggregation
 aws glue start-job-run --job-name energy-monthly-aggregation
