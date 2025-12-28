@@ -25,7 +25,7 @@ def run_producer():
         category = laureate.get('Category', 'Unknown')
 
         # Se envía a Kinesis el registro completo
-        response = kinesis.put_record(
+        kinesis.put_record(
             StreamName=STREAM_NAME,
             Data=json.dumps(laureate),
             PartitionKey=category
