@@ -1,58 +1,49 @@
+from loguru import logger
 import boto3
 import json
 import time
-from loguru import logger
-import datetime
 
-# CONFIGURACIÓN
-STREAM_NAME = 'energy-stream'
-REGION = 'us-east-1' # Cambia si usas otra región
-INPUT_FILE = 'datos.json'
+# VARIABLES DE CONFIGURACIÓN
+INPUT_FILE =    'nobel_laureates.json'
+STREAM_NAME =   'nobel-laureates-stream'
+REGION_NAME =   'us-east-1'
 
-kinesis = boto3.client('kinesis', region_name=REGION)
+kinesis = boto3.client('kinesis', region_name=REGION_NAME)
 
 def load_data(file_path):
-    with open(file_path, 'r') as f:
-        return json.load(f)
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return json.load(file)
 
 def run_producer():
-    data = load_data(INPUT_FILE)
+    laureates_list = load_data(INPUT_FILE)
     records_sent = 0
-    
-    # El JSON tiene una estructura 'included' donde están los arrays de valores
-    series_list = data.get('included', [])
-    
-    logger.info(f"Iniciando transmisión al stream: {STREAM_NAME}...")
-    
-    # Iteramos sobre los 3 tipos de demanda (Real, Programada, Prevista)
-    for serie in series_list:
-        tipo_demanda = serie['attributes']['title']
-        valores = serie['attributes']['values']
-        
-        for registro in valores:
-            # Estructura del mensaje a enviar
-            payload = {
-                'tipo': tipo_demanda,
-                'valor': registro['value'],
-                'timestamp_origen': registro['datetime'],
-                'porcentaje': registro['percentage']
-            }
-            
-            # Enviar a Kinesis
-            response = kinesis.put_record(
-                StreamName=STREAM_NAME,
-                Data=json.dumps(payload),
-                PartitionKey=tipo_demanda # Usamos el tipo como clave de partición
-            )
-            
-            records_sent += 1
-            logger.info(f"Registro enviado al shard {response['ShardId']} con SequenceNumber {response['SequenceNumber']}")
-            logger.info(f"Enviado [{tipo_demanda}]: {registro['value']} MW")
-            
-            # Pequeña pausa para simular streaming y no saturar de golpe
-            time.sleep(0.1) 
 
-    logger.info(f"Fin de la transmisión. Total registros enviados: {records_sent}")
+    logger.info(f"❗Iniciando transmisión al stream: {STREAM_NAME}...")
+
+    # Se itera sobre todos los laureados
+    for laureate in laureates_list:
+        category = laureate.get('Category', 'Unknown')
+
+        # Se envía a Kinesis el registro completo
+        response = kinesis.put_record(
+            StreamName=STREAM_NAME,
+            Data=json.dumps(laureate),
+            PartitionKey=category
+        )
+
+        records_sent += 1
+
+        # Información para el log
+        laureate_name = laureate.get('Full Name', 'Unknown')
+        year = laureate.get('Year', 'N/A')
+
+        # Indicador de registro enviado
+        logger.info(f"Enviado: {laureate_name} ({year} - Categoría: {category})")
+
+        # Pequeña pausa para simular streaming y no saturar de golpe
+        time.sleep(0.1) 
+
+    logger.info(f"✅¡La transmisión ha finalizado!. Total de registros enviados: {records_sent}")
 
 if __name__ == '__main__':
     run_producer()
