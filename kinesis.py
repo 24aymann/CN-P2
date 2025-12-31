@@ -38,7 +38,7 @@ def run_producer():
         year = laureate.get('Year', 'N/A')
 
         # Indicador de registro enviado
-        logger.info(f"( {year} - {category} ) ===> 🌟 {laureate_name} 🌟")
+        logger.info(f"( {year} - {category} )".ljust(23) + f"===>  🌟 {laureate_name} 🌟")
 
         # Pequeña pausa para simular streaming y no saturar de golpe
         time.sleep(0.1) 
