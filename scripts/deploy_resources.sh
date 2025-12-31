@@ -6,10 +6,12 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 BUCKET_NAME="datalake-laureates-${ACCOUNT_ID}"
 ROLE_ARN=$(aws iam get-role --role-name LabRole --query 'Role.Arn' --output text)
 
+echo ""
 echo "=========== 🔹 CONFIGURACIÓN INICIAL 🔹 ==========="
-echo "1️⃣ Región de AWS en uso: $AWS_REGION"
-echo "2️⃣ Usando Bucket:        $BUCKET_NAME"
-echo "3️⃣ Usando Role:          $ROLE_ARN"
+echo "1️⃣  Región de AWS:     $AWS_REGION"
+echo "2️⃣  Bucket:            $BUCKET_NAME"
+echo "3️⃣  Role:              $ROLE_ARN"
+echo ""
 
 
 # =======================================
@@ -17,23 +19,23 @@ echo "3️⃣ Usando Role:          $ROLE_ARN"
 # =======================================
 
 # Crear el bucket de S3
-aws s3 mb s3://$BUCKET_NAME
+aws s3 mb s3://$BUCKET_NAME > /dev/null
 
 # Crear carpetas del bucket (objetos vacíos con / al final)
-aws s3api put-object --bucket $BUCKET_NAME --key raw/
-aws s3api put-object --bucket $BUCKET_NAME --key raw/laureates/
-aws s3api put-object --bucket $BUCKET_NAME --key processed/
-aws s3api put-object --bucket $BUCKET_NAME --key config/
-aws s3api put-object --bucket $BUCKET_NAME --key scripts/
-aws s3api put-object --bucket $BUCKET_NAME --key queries/
-aws s3api put-object --bucket $BUCKET_NAME --key errors/
+aws s3api put-object --bucket $BUCKET_NAME --key raw/ > /dev/null
+aws s3api put-object --bucket $BUCKET_NAME --key raw/laureates/ > /dev/null
+aws s3api put-object --bucket $BUCKET_NAME --key processed/ > /dev/null
+aws s3api put-object --bucket $BUCKET_NAME --key config/ > /dev/null
+aws s3api put-object --bucket $BUCKET_NAME --key scripts/ > /dev/null
+aws s3api put-object --bucket $BUCKET_NAME --key queries/ > /dev/null
+aws s3api put-object --bucket $BUCKET_NAME --key errors/ > /dev/null
 
 # Crear el stream de Kinesis
-aws kinesis create-stream --stream-name laureates-stream --shard-count 1
+aws kinesis create-stream --stream-name laureates-stream --shard-count 1 > /dev/null
 
 
 # =======================================
-# ======== SECCIÓN: FIREHOSE ========
+# ========== SECCIÓN: FIREHOSE ==========
 # =======================================
 
 # Crear el zip de la lambda
@@ -47,12 +49,12 @@ aws lambda create-function \
     --handler firehose.lambda_handler \
     --zip-file fileb://firehose.zip \
     --timeout 60 \
-    --memory-size 128
+    --memory-size 128 > /dev/null
 
 # Actualizar la función lambda
 aws lambda update-function-code \
     --function-name laureates-firehose-lambda \
-    --zip-file fileb://firehose.zip
+    --zip-file fileb://firehose.zip > /dev/null
 
 # Obtener el ARN de la función lambda
 LAMBDA_ARN=$(aws lambda get-function --function-name laureates-firehose-lambda --query 'Configuration.FunctionArn' --output text)
@@ -65,7 +67,7 @@ aws firehose create-delivery-stream \
     --extended-s3-destination-configuration '{
         "BucketARN": "arn:aws:s3:::'"$BUCKET_NAME"'",
         "RoleARN": "'"$ROLE_ARN"'",
-        "Prefix": "raw/laureates_consumption_five_minutes/processing_date=!{partitionKeyFromLambda:processing_date}/",
+        "Prefix": "raw/laureates/processing_date=!{partitionKeyFromLambda:processing_date}/",
         "ErrorOutputPrefix": "errors/!{firehose:error-output-type}/",
         "BufferingHints": {
             "SizeInMBs": 64,
@@ -99,7 +101,7 @@ aws firehose create-delivery-stream \
                 }
             ]
         }
-    }'
+    }' > /dev/null
 
 
 # =======================================
@@ -107,29 +109,29 @@ aws firehose create-delivery-stream \
 # =======================================
 
 # Crear la base de datos de Glue
-aws glue create-database --database-input "{\"Name\":\"laureates_db\"}"
+aws glue create-database --database-input "{\"Name\":\"laureates_db\"}" > /dev/null
 
 # Crear el crawler de Glue
 aws glue create-crawler \
     --name laureates-raw-crawler \
     --role $ROLE_ARN \
     --database-name laureates_db \
-    --targets "{\"S3Targets\": [{\"Path\": \"s3://$BUCKET_NAME/raw/laureates\"}]}"
+    --targets "{\"S3Targets\": [{\"Path\": \"s3://$BUCKET_NAME/raw/laureates\"}]}" > /dev/null
 
 python kinesis.py
 sleep 60
 
-aws glue start-crawler --name laureates-raw-crawler
+aws glue start-crawler --name laureates-raw-crawler > /dev/null
 
 
 # =======================================
-# ============ SECCIÓN: GLUE ETL =========
+# ========== SECCIÓN: GLUE ETL ==========
 # =======================================
 
 # Subir los scripts de ETL a S3
-aws s3 cp nobel_aggregation_gender.py s3://$BUCKET_NAME/scripts/
-aws s3 cp nobel_aggregation_decadal.py s3://$BUCKET_NAME/scripts/
-aws s3 cp nobel_aggregation_by_country.py s3://$BUCKET_NAME/scripts/
+aws s3 cp nobel_aggregation_gender.py s3://$BUCKET_NAME/scripts/ > /dev/null
+aws s3 cp nobel_aggregation_decadal.py s3://$BUCKET_NAME/scripts/ > /dev/null
+aws s3 cp nobel_aggregation_by_country.py s3://$BUCKET_NAME/scripts/ > /dev/null
 
 # Variables de entorno
 DATABASE="laureates_db"
@@ -156,7 +158,7 @@ aws glue create-job \
     }' \
     --glue-version "4.0" \
     --number-of-workers 2 \
-    --worker-type "G.1X"
+    --worker-type "G.1X" > /dev/null
 
 aws glue create-job \
     --name nobel-decadal-aggregation \
@@ -175,7 +177,7 @@ aws glue create-job \
     }' \
     --glue-version "4.0" \
     --number-of-workers 2 \
-    --worker-type "G.1X"
+    --worker-type "G.1X" > /dev/null
 
 aws glue create-job \
     --name nobel-country-aggregation \
@@ -194,7 +196,7 @@ aws glue create-job \
     }' \
     --glue-version "4.0" \
     --number-of-workers 2 \
-    --worker-type "G.1X"
+    --worker-type "G.1X" > /dev/null
 
 echo ""
 echo "Esperando a que el crawler 'laureates-raw-crawler' termine..."
@@ -211,11 +213,11 @@ while true; do
 done
 
 # Comenzar la ejecución de los Jobs
-aws glue start-job-run --job-name nobel-gender-aggregation
-aws glue start-job-run --job-name nobel-decadal-aggregation
-aws glue start-job-run --job-name nobel-country-aggregation
+aws glue start-job-run --job-name nobel-gender-aggregation > /dev/null
+aws glue start-job-run --job-name nobel-decadal-aggregation > /dev/null
+aws glue start-job-run --job-name nobel-country-aggregation > /dev/null
 
 # Comprobar el estado de los Jobs
-aws glue get-job-runs --job-name nobel-gender-aggregation --max-items 1
-aws glue get-job-runs --job-name nobel-decadal-aggregation --max-items 1
-aws glue get-job-runs --job-name nobel-country-aggregation --max-items 1
+aws glue get-job-runs --job-name nobel-gender-aggregation --max-items 1 > /dev/null
+aws glue get-job-runs --job-name nobel-decadal-aggregation --max-items 1 > /dev/null
+aws glue get-job-runs --job-name nobel-country-aggregation --max-items 1 > /dev/null
