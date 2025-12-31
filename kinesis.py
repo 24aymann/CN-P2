@@ -5,7 +5,7 @@ import time
 
 # VARIABLES DE CONFIGURACIÓN
 INPUT_FILE =    'nobel_laureates.json'
-STREAM_NAME =   'nobel-laureates-stream'
+STREAM_NAME =   'laureates-stream'
 REGION_NAME =   'us-east-1'
 
 kinesis = boto3.client('kinesis', region_name=REGION_NAME)
@@ -18,7 +18,7 @@ def run_producer():
     laureates_list = load_data(INPUT_FILE)
     records_sent = 0
 
-    logger.info(f"❗Iniciando transmisión al stream: {STREAM_NAME}...")
+    logger.info(f"❗ Iniciando transmisión al stream: {STREAM_NAME}...")
 
     # Se itera sobre todos los laureados
     for laureate in laureates_list:
@@ -38,12 +38,15 @@ def run_producer():
         year = laureate.get('Year', 'N/A')
 
         # Indicador de registro enviado
-        logger.info(f"Enviado: {laureate_name} ({year} - Categoría: {category})")
+        logger.info(f"( {year} - {category} ) ===> 🌟 {laureate_name} 🌟")
 
         # Pequeña pausa para simular streaming y no saturar de golpe
         time.sleep(0.1) 
 
-    logger.info(f"✅¡La transmisión ha finalizado!. Total de registros enviados: {records_sent}")
+    logger.info("")
+    logger.info("✅¡La transmisión ha finalizado!✅")
+    logger.info(f"Total de registros enviados: {records_sent}")
+
 
 if __name__ == '__main__':
     run_producer()
