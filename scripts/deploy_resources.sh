@@ -129,9 +129,9 @@ aws glue start-crawler --name laureates-raw-crawler > /dev/null
 # =======================================
 
 # Subir los scripts de ETL a S3
-aws s3 cp nobel_aggregation_gender.py s3://$BUCKET_NAME/scripts/ > /dev/null
-aws s3 cp nobel_aggregation_decadal.py s3://$BUCKET_NAME/scripts/ > /dev/null
-aws s3 cp nobel_aggregation_by_country.py s3://$BUCKET_NAME/scripts/ > /dev/null
+aws s3 cp jobs/nobel_aggregation_gender.py s3://$BUCKET_NAME/scripts/ > /dev/null
+aws s3 cp jobs/nobel_aggregation_decadal.py s3://$BUCKET_NAME/scripts/ > /dev/null
+aws s3 cp jobs/nobel_aggregation_by_country.py s3://$BUCKET_NAME/scripts/ > /dev/null
 
 # Variables de entorno
 DATABASE="laureates_db"

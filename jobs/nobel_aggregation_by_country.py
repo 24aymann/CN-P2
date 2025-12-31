@@ -32,6 +32,11 @@ def main():
     
     df = dynamic_frame.toDF()
     
+    # Normalize column names
+    for col_name in df.columns:
+        new_col_name = col_name.lower().replace(" ", "_").strip()
+        df = df.withColumnRenamed(col_name, new_col_name)
+    
     # Group by birth country and category
     aggregated_df = df.filter(col("birth_country") != "") \
         .groupBy("birth_country", "category") \
