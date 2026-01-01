@@ -61,6 +61,11 @@ execute_command "Eliminando el Crawler de Glue..." \
                 "AVISO: El Crawler no existe o ya fue eliminado previamente." \
                 aws glue delete-crawler --name laureates-raw-crawler
 
+execute_command "Eliminando el Crawler de Glue de procesados..." \
+                "El crawler de procesados fue eliminado correctamente (o ya no existía)." \
+                "AVISO: El Crawler de procesados no existe o ya fue eliminado previamente." \
+                aws glue delete-crawler --name laureates-processed-crawler
+
 execute_command "Eliminando la Glue Database..." \
                 "La base de datos fue eliminada correctamente (o ya no existía)." \
                 "AVISO: La Base de Datos no existe o ya fue eliminada previamente." \

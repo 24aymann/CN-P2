@@ -161,14 +161,24 @@ execute_command "Creando la base de datos de Glue: laureates_db..." \
                 aws glue create-database --database-input "{\"Name\":\"laureates_db\"}"
 
 # Crear el crawler de Glue
-execute_command "Creando el crawler Glue: laureates-raw-crawler..." \
-                "¡Crawler Glue creado correctamente!" \
-                "AVISO: Ha ocurrido un error al crear el crawler Glue." \
+execute_command "Creando el crawler de Glue: laureates-raw-crawler..." \
+                "¡Glue Crawler creado correctamente!" \
+                "AVISO: Ha ocurrido un error al crear el crawler de Glue." \
                 aws glue create-crawler \
                     --name laureates-raw-crawler \
                     --role "$ROLE_ARN" \
                     --database-name laureates_db \
                     --targets "{\"S3Targets\": [{\"Path\": \"s3://$BUCKET_NAME/raw/laureates\"}]}"
+
+# Crear el crawler de Glue para datos procesados
+execute_command "Creando el crawler de Glue para procesados: laureates-processed-crawler..." \
+                "¡Glue Crawler de procesados creado correctamente!" \
+                "AVISO: Ha ocurrido un error al crear el crawler de Glue para procesados." \
+                aws glue create-crawler \
+                    --name laureates-processed-crawler \
+                    --role "$ROLE_ARN" \
+                    --database-name laureates_db \
+                    --targets "{\"S3Targets\": [{\"Path\": \"s3://$BUCKET_NAME/processed/\"}]}"
 
 add_blankspaces
 echo "Ejecutando el producer de Kinesis (tardará unos momentos)..."
@@ -182,8 +192,8 @@ fi
 sleep 60
 
 execute_command "Iniciando el crawler 'laureates-raw-crawler'..." \
-                "¡Crawler iniciado!" \
-                "AVISO: Ha ocurrido un error al iniciar el crawler." \
+                "¡Glue Crawler iniciado!" \
+                "AVISO: Ha ocurrido un error al iniciar el crawler de Glue." \
                 aws glue start-crawler --name laureates-raw-crawler
 
 
@@ -297,9 +307,34 @@ execute_command "Iniciando Jobs de Glue..." \
                  aws glue start-job-run --job-name nobel-country-aggregation"
 
 # Comprobar el estado de los Jobs
-aws glue get-job-runs --job-name nobel-gender-aggregation --max-items 1 > /dev/null
-aws glue get-job-runs --job-name nobel-decadal-aggregation --max-items 1 > /dev/null
-aws glue get-job-runs --job-name nobel-country-aggregation --max-items 1 > /dev/null
+add_blankspaces
+echo "Se debe esperar a que los Jobs de Glue finalicen para iniciar el crawler de procesados..."
+
+while true; do
+    STATUS_GENDER=$(aws glue get-job-runs --job-name nobel-gender-aggregation --max-items 1 --query "JobRuns[0].JobRunState" --output text)
+    STATUS_DECADAL=$(aws glue get-job-runs --job-name nobel-decadal-aggregation --max-items 1 --query "JobRuns[0].JobRunState" --output text)
+    STATUS_COUNTRY=$(aws glue get-job-runs --job-name nobel-country-aggregation --max-items 1 --query "JobRuns[0].JobRunState" --output text)
+
+    echo " ==========> ESTADO DE LOS JOBS"
+    echo "Gender -> $STATUS_GENDER || Decadal -> $STATUS_DECADAL || Country -> $STATUS_COUNTRY"
+
+    if [[ "$STATUS_GENDER" == "SUCCEEDED" && "$STATUS_DECADAL" == "SUCCEEDED" && "$STATUS_COUNTRY" == "SUCCEEDED" ]]; then
+        echo "✅ Todos los Jobs finalizaron correctamente."
+        break
+    fi
+    
+    if [[ "$STATUS_GENDER" =~ (FAILED|TIMEOUT|STOPPED) || "$STATUS_DECADAL" =~ (FAILED|TIMEOUT|STOPPED) || "$STATUS_COUNTRY" =~ (FAILED|TIMEOUT|STOPPED) ]]; then
+        echo "❌ Uno o más Jobs fallaron o se detuvieron. Estado: ($STATUS_GENDER, $STATUS_DECADAL, $STATUS_COUNTRY)"
+        exit 1
+    fi
+    
+    sleep 30
+done
+
+execute_command "Iniciando el crawler de procesados 'laureates-processed-crawler'..." \
+                "¡Glue Crawler de procesados iniciado!" \
+                "AVISO: Ha ocurrido un error al iniciar el crawler de procesados." \
+                aws glue start-crawler --name laureates-processed-crawler
 
 add_blankspaces
 echo "🎉  F I N   D E L   D E S P L I E G U E  🎉"
