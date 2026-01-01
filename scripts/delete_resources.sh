@@ -4,7 +4,7 @@ AWS_REGION="us-east-1"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 BUCKET_NAME="datalake-laureates-${ACCOUNT_ID}"
 
-echo "========== 🗑️ Iniciando limpieza de recursos... 🗑️ =========="
+echo "========== 🗑️  Iniciando limpieza de recursos... 🗑️ =========="
 echo "Cuenta AWS:       $ACCOUNT_ID"
 echo "Bucket Objetivo:  $BUCKET_NAME"
 
