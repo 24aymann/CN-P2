@@ -115,34 +115,13 @@ execute_command "Creando Firehose Delivery Stream..." \
                 \"RoleARN\": \"$ROLE_ARN\",
                 \"Prefix\": \"raw/laureates/processing_date=!{partitionKeyFromLambda:processing_date}/\",
                 \"ErrorOutputPrefix\": \"errors/!{firehose:error-output-type}/\",
-                \"BufferingHints\": {
-                    \"SizeInMBs\": 64,
-                    \"IntervalInSeconds\": 60
-                },
-                \"DynamicPartitioningConfiguration\": {
-                    \"Enabled\": true,
-                    \"RetryOptions\": {
-                        \"DurationInSeconds\": 300
-                    }
-                },
-                \"ProcessingConfiguration\": {
-                    \"Enabled\": true,
-                    \"Processors\": [
-                        {
-                            \"Type\": \"Lambda\",
-                            \"Parameters\": [
-                                {
-                                    \"ParameterName\": \"LambdaArn\",
-                                    \"ParameterValue\": \"$LAMBDA_ARN\"
-                                },
-                                {
-                                    \"ParameterName\": \"BufferSizeInMBs\",
-                                    \"ParameterValue\": \"1\"
-                                },
-                                {
-                                    \"ParameterName\": \"BufferIntervalInSeconds\",
-                                    \"ParameterValue\": \"60\"
-                                }
+                \"BufferingHints\": { \"SizeInMBs\": 64, \"IntervalInSeconds\": 60 },
+                \"DynamicPartitioningConfiguration\": { \"Enabled\": true, \"RetryOptions\": { \"DurationInSeconds\": 300 } },
+                \"ProcessingConfiguration\": { \"Enabled\": true, \"Processors\": [
+                        { \"Type\": \"Lambda\", \"Parameters\": [
+                                { \"ParameterName\": \"LambdaArn\", \"ParameterValue\": \"$LAMBDA_ARN\" },
+                                { \"ParameterName\": \"BufferSizeInMBs\", \"ParameterValue\": \"1\" },
+                                { \"ParameterName\": \"BufferIntervalInSeconds\", \"ParameterValue\": \"60\" }
                             ]
                         }
                     ]
@@ -218,7 +197,7 @@ COUNTRY_OUTPUT="s3://$BUCKET_NAME/processed/laureates_country/"
 
 # Creación de los Jobs de Glue
 execute_command "¡Creando primer Job Glue! ---> 1️⃣  Nobel Gender Aggregation..." \
-                "¡Job nobel-gender-aggregation creado correctamente!" \
+                "¡Job Nobel Gender Aggregation creado correctamente!" \
                 "AVISO: Ha ocurrido un error al crear el Job nobel-gender-aggregation." \
                 aws glue create-job \
                     --name nobel-gender-aggregation \
@@ -240,7 +219,7 @@ execute_command "¡Creando primer Job Glue! ---> 1️⃣  Nobel Gender Aggregati
                     --worker-type "G.1X"
 
 execute_command "¡Creando segundo Job Glue! ---> 2️⃣  Nobel Decadal Aggregation..." \
-                "¡Job nobel-decadal-aggregation creado correctamente!" \
+                "¡Job Nobel Decadal Aggregation creado correctamente!" \
                 "AVISO: Ha ocurrido un error al crear el Job nobel-decadal-aggregation." \
                 aws glue create-job \
                     --name nobel-decadal-aggregation \
@@ -262,7 +241,7 @@ execute_command "¡Creando segundo Job Glue! ---> 2️⃣  Nobel Decadal Aggrega
                     --worker-type "G.1X"
 
 execute_command "¡Creando tercer Job Glue! ---> 3️⃣  Nobel Country Aggregation..." \
-                "¡Job nobel-country-aggregation creado correctamente!" \
+                "¡Job Nobel Country Aggregation creado correctamente!" \
                 "AVISO: Ha ocurrido un error al crear el Job nobel-country-aggregation." \
                 aws glue create-job \
                     --name nobel-country-aggregation \
@@ -316,7 +295,8 @@ while true; do
     STATUS_COUNTRY=$(aws glue get-job-runs --job-name nobel-country-aggregation --max-items 1 --query "JobRuns[0].JobRunState" --output text)
 
     echo " ==========> ESTADO DE LOS JOBS"
-    echo "Gender -> $STATUS_GENDER || Decadal -> $STATUS_DECADAL || Country -> $STATUS_COUNTRY"
+    echo "Gender: $STATUS_GENDER || Decadal: $STATUS_DECADAL || Country: $STATUS_COUNTRY"
+    echo ""
 
     if [[ "$STATUS_GENDER" == "SUCCEEDED" && "$STATUS_DECADAL" == "SUCCEEDED" && "$STATUS_COUNTRY" == "SUCCEEDED" ]]; then
         echo "✅ Todos los Jobs finalizaron correctamente."
