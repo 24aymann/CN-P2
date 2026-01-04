@@ -267,9 +267,9 @@ echo "Esperando a que el crawler 'laureates-raw-crawler' termine..."
 while true; do
     CRAWLER_STATE=$(aws glue get-crawler --name laureates-raw-crawler --query "Crawler.State" --output text)
     echo "Estado del Crawler: $CRAWLER_STATE"
+    echo ""
     
     if [ "$CRAWLER_STATE" == "READY" ]; then
-        echo ""
         echo "Crawler finalizado."
         break
     fi
@@ -277,44 +277,51 @@ while true; do
     sleep 30
 done
 
-# Comenzar la ejecución de los Jobs
-execute_command "Iniciando Jobs de Glue..." \
-                "¡Jobs iniciados correctamente!" \
-                "AVISO: Ha ocurrido un error al iniciar los Jobs de Glue." \
-                bash -c "aws glue start-job-run --job-name nobel-gender-aggregation && \
-                 aws glue start-job-run --job-name nobel-decadal-aggregation && \
-                 aws glue start-job-run --job-name nobel-country-aggregation"
+# Ejecución secuencial de los Jobs de Glue
+for JOB_NAME in "nobel-gender-aggregation" "nobel-decadal-aggregation" "nobel-country-aggregation"; do
+    execute_command "Iniciando el job de Glue $JOB_NAME..." \
+                    "¡El job de Glue $JOB_NAME fue iniciado correctamente!" \
+                    "AVISO: Ha ocurrido un error al iniciar el job de Glue $JOB_NAME." \
+                    aws glue start-job-run --job-name "$JOB_NAME"
 
-# Comprobar el estado de los Jobs
-add_blankspaces
-echo "Se debe esperar a que los Jobs de Glue finalicen para iniciar el crawler de procesados..."
-
-while true; do
-    STATUS_GENDER=$(aws glue get-job-runs --job-name nobel-gender-aggregation --max-items 1 --query "JobRuns[0].JobRunState" --output text)
-    STATUS_DECADAL=$(aws glue get-job-runs --job-name nobel-decadal-aggregation --max-items 1 --query "JobRuns[0].JobRunState" --output text)
-    STATUS_COUNTRY=$(aws glue get-job-runs --job-name nobel-country-aggregation --max-items 1 --query "JobRuns[0].JobRunState" --output text)
-
-    echo " ==========> ESTADO DE LOS JOBS"
-    echo "Gender: $STATUS_GENDER || Decadal: $STATUS_DECADAL || Country: $STATUS_COUNTRY"
+    echo "Esperando a que el job $JOB_NAME finalice..."
     echo ""
-
-    if [[ "$STATUS_GENDER" == "SUCCEEDED" && "$STATUS_DECADAL" == "SUCCEEDED" && "$STATUS_COUNTRY" == "SUCCEEDED" ]]; then
-        echo "✅ Todos los Jobs finalizaron correctamente."
-        break
-    fi
-    
-    if [[ "$STATUS_GENDER" =~ (FAILED|TIMEOUT|STOPPED) || "$STATUS_DECADAL" =~ (FAILED|TIMEOUT|STOPPED) || "$STATUS_COUNTRY" =~ (FAILED|TIMEOUT|STOPPED) ]]; then
-        echo "❌ Uno o más Jobs fallaron o se detuvieron. Estado: ($STATUS_GENDER, $STATUS_DECADAL, $STATUS_COUNTRY)"
-        exit 1
-    fi
-    
-    sleep 30
+    while true; do
+        STATUS=$(aws glue get-job-runs --job-name "$JOB_NAME" --max-items 1 --query "JobRuns[0].JobRunState" --output text)
+        echo "Estado de $JOB_NAME ---> $STATUS"
+        
+        if [ "$STATUS" == "SUCCEEDED" ]; then
+            echo "✅ Job $JOB_NAME finalizado con éxito."
+            echo ""
+            break
+        elif [[ "$STATUS" =~ (FAILED|TIMEOUT|STOPPED) ]]; then
+            echo "❌ El Job $JOB_NAME ha fallado o se ha detenido. Estado: $STATUS"
+            exit 1
+        fi
+        
+        sleep 30
+    done
 done
 
 execute_command "Iniciando el crawler de procesados 'laureates-processed-crawler'..." \
                 "¡Glue Crawler de procesados iniciado!" \
                 "AVISO: Ha ocurrido un error al iniciar el crawler de procesados." \
                 aws glue start-crawler --name laureates-processed-crawler
+
+echo "Esperando a que el crawler 'laureates-processed-crawler' termine..."
+sleep 25
+while true; do
+    CRAWLER_STATE=$(aws glue get-crawler --name laureates-processed-crawler --query "Crawler.State" --output text)
+    echo "Estado del Crawler de procesados: $CRAWLER_STATE"
+    echo ""
+    
+    if [ "$CRAWLER_STATE" == "READY" ]; then
+        echo "✅ Crawler de procesados finalizado."
+        break
+    fi
+    
+    sleep 30
+done
 
 add_blankspaces
 echo "🎉  F I N   D E L   D E S P L I E G U E  🎉"
