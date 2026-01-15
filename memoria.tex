@@ -133,7 +133,7 @@ Además de ello, se ha simulado un escenario de streaming de datos utilizando un
     \item \textbf{Catalogación y ETL:} Una vez los datos residen en S3, se utiliza \textit{AWS Glue}. En primer lugar, los \textit{crawlers} de Glue descubren automáticamente el esquema de los datos. En segundo lugar, se ejecutan \textit{jobs} ETL para agregar y analizar la información (uno de los casos utilizados en esta práctica ha sido obtener métricas a raíz del género), depositando los resultados procesados nuevamente en S3 en formato \textit{parquet}.
 \end{enumerate}
 
-De este modo, la arquitectura planteada permite separar claramente las responsabilidades y lograr el objetivo de la práctica.
+De este modo, la arquitectura planteada permite separar adecuadamente las responsabilidades y lograr el objetivo de la práctica.
 
 \newpage
 
@@ -166,7 +166,7 @@ Es por ello que se ha seguido este patrón y se ha decidido configurar el mismo 
     \item \textbf{queries/} y \textbf{errors/}: Son carpetas auxiliares para guardar consultas de Athena o registros de errores generados por Kinesis Firehose si fallase la transformación o entrega.
 \end{itemize}
 
-Esta separación de carpetas es fundamental para evitar mezclar datos de diferentes módulos de procesamiento y para simplificar la configuración de los crawlers de Glue, que pueden apuntar a carpetas específicas sin riesgo de leer archivos de configuración como si fueran datos.
+Esta separación de carpetas es fundamental para evitar mezclar datos de diferentes módulos de procesamiento y para simplificar la configuración de los crawlers de Glue, que pueden apuntar a carpetas específicas sin riesgo de leer archivos de configuración como si fueran datos. Cabe destacar que no todas estas carpetas tienen uso actualmente, dado que están impuestas con visión a futuro para mejoras e integraciones, tales como puede ser AWS Athena, la cual permite ejecutar consultas/queries directamente sobre datos almacenados en el bucket de S3.
 
 \begin{figure}[h]
     \centering
@@ -183,17 +183,21 @@ Esta separación de carpetas es fundamental para evitar mezclar datos de diferen
 
 \subsection{Implementación del productor de datos}
 
-Para simular la entrada de datos en tiempo real, se ha desarrollado un script en Python llamado \texttt{kinesis.py}. Este script actúa como un productor que lee un fichero estático JSON (\texttt{nobel\_laureates.json}) y envía cada registro individualmente a un \textit{Amazon Kinesis Data Stream} llamado \texttt{laureates-stream}.
+El servicio de transmisión de datos del que se hará uso en esta sección es \textbf{Amazon Kinesis Data Streams} y, además de ser masivamente escalable y duradero, está diseñado para capturar y procesar grandes volúmenes de datos en tiempo real. Dentro de la arquitectura del \textit{datalake de laureates}, Kinesis actúa como un \textit{buffer}, permitiendo desacoplar a los productores de datos de los consumidores.
+
+Su funcionamiento se basa en \textbf{shards}, que se definen como fragmentos, los cuales proporcionan una capacidad de procesamiento dedicada, permitiendo una ingesta ordenada y segura. En este proyecto, el uso de Kinesis es fundamental para transformar una carga de datos estática en un flujo continuo de elementos, simulando un entorno de producción donde la información llega de manera continuada.
+
+Para simular la entrada de datos en tiempo real, se ha desarrollado un script en Python, denominado \texttt{kinesis.py}. Dicho script actúa como un productor que lee un fichero estático JSON (\texttt{nobel\_laureates.json}) y envía cada registro individualmente a un \textit{Amazon Kinesis Data Stream} llamado \texttt{laureates-stream}.
 
 El diseño de este productor de datos incluye las siguientes características clave:
 \begin{itemize}
-    \item \textbf{Carga de Datos:} Lee el archivo JSON completo que contiene información histórica de los laureados.
-    \item \textbf{Envío Iterativo:} Recorre la lista de laureados y utiliza la librería \texttt{boto3} para realizar la llamada \texttt{put\_record}.
-    \item \textbf{Clave de Partición (\textit{Partition Key}):} Se utiliza el campo \texttt{Category} (ej. "Physics", "Chemistry") como clave de partición. Esto asegura que los registros de la misma categoría se dirijan preferentemente al mismo \textit{shard} (fragmento) de Kinesis, lo cual puede ser beneficioso si se quisiera mantener el orden dentro de una categoría, aunque en este caso utilizamos un solo shard para la práctica.
-    \item \textbf{Simulación de Latencia:} Se ha introducido un \texttt{time.sleep(0.1)} entre envíos para evitar saturar el ancho de banda de subida y simular un flujo continuo de eventos en lugar de una carga por lotes instantánea.
+    \item \textbf{Carga de datos:} Se procede a leer el archivo JSON completo que contiene información histórica de todos los premiados (comprendidos entre 1901-2016).
+    \item \textbf{Envío continuo:} Recorre la lista de laureados y utiliza la librería \texttt{boto3} para realizar la llamada a \texttt{put\_record}, la cual se encarga de enviar a Kinesis el registro completo (con cada uno de los campos del registro: 'prize', 'full name', entre otros).
+    \item \textbf{Clave de partición} Se utiliza el campo \texttt{Category} como clave de partición. Esto asegura que los registros de la misma categoría se dirijan preferentemente al mismo \textit{shard} (fragmento) de Kinesis, lo cual puede ser beneficioso si se quisiera mantener el orden dentro de una categoría. No obstante, en este caso se utiliza un sólo shard para la práctica.
+    \item \textbf{Simulación de un periodo de latencia:} También, en el script se ha añadido un \texttt{time.sleep(0.1)} entre envíos para evitar saturar el ancho de banda de subida y simular un flujo continuo de elementos, en lugar de una carga por lotes instantánea.
 \end{itemize}
 
-A continuación se muestra un extracto relevante del código del productor donde se realiza el envío del registro:
+A continuación, pese a que el proyecto completo se encuentre adjuntado al final del documento (REFERENCE), se muestra un extracto relevante del código del productor donde se realiza el envío del registro:
 
 \begin{lstlisting}[language=Python, caption=Extracto del script productor kinesis.py]
 # Se itera sobre todos los laureados
@@ -211,29 +215,38 @@ for laureate in laureates_list:
 
 Este enfoque permite verificar en tiempo real cómo la métrica de \textit{IncomingRecords} aumenta en la consola de Kinesis.
 
+% ===================================================
+
 \subsection{Configuración del consumidor (Kinesis Firehose)}
 
-Como consumidor del stream de datos, se ha configurado un **Amazon Kinesis Data Firehose**. Firehose es un servicio de entrega totalmente gestionado que, en nuestra arquitectura, captura los datos del stream y los deposita en el bucket de S3.
+Como consumidor del stream de datos, se ha configurado el recurso Amazon Kinesis Data Firehose. Firehose, es un servicio de entrega totalmente gestionado que, en la presente arquitectura, no hace más que capturar los datos del stream y los deposita en el bucket de S3.
 
-La configuración de Firehose (\texttt{laureates-delivery-stream}) incluye una funcionalidad avanzada y crucial para la organización del Data Lake: el **Particionado Dinámico** (\textit{Dynamic Partitioning}).
+En cuanto a este caso, la configuración del (\texttt{laureates-delivery-stream}) incluye una funcionalidad avanzada y crucial para la organización del datalake: \textit{el particionado dinámico}.
 
 \subsubsection{Transformación con AWS Lambda}
-Para lograr este particionado, Firehose invoca una función AWS Lambda (\texttt{laureates-firehose-lambda}) antes de escribir en S3. El código de esta función, alojado en \texttt{firehose.py}, realiza lo siguiente:
-1. Recibe un lote de registros codificados en Base64.
-2. Decodifica cada registro y calcula la fecha actual de procesamiento.
-3. Añade metadatos al registro de salida, específicamente una clave \texttt{partitionKeys} con el valor de la fecha (\texttt{processing\_date}).
-4. Devuelve el registro a Firehose.
+Para lograr este particionado, Firehose invoca una función AWS Lambda denominada \texttt{laureates-firehose-lambda}) antes de escribir en S3. El código de esta función, alojado en \texttt{firehose.py}, realiza secuencialmente lo siguiente:
+
+\begin{enumerate}
+    \item Recibe un lote de registros codificados en Base64.
+    \item Decodifica cada registro y calcula la fecha actual de procesamiento.
+    \item Añade metadatos al registro de salida, específicamente una clave \texttt{partitionKeys} con el valor de la fecha (\texttt{processing\_date}).
+    \item Devuelve el registro a Firehose.
+\end{enumerate}
 
 Esta transformación es ligera pero esencial, ya que permite a Firehose saber en qué carpeta exacta de S3 debe colocar cada archivo.
 
 \subsubsection{Configuración del Destino S3}
-En la configuración del destino S3 dentro de Firehose, hemos definido el prefijo utilizando la variable extraída por la Lambda. El prefijo configurado es:
+En la configuración del destino S3 dentro de Firehose, se ha definido el prefijo utilizando la variable extraída por la Lambda, de modo que el prefijo configurado queda de la siguiente forma:
 
-\texttt{raw/laureates/processing\_date=!\{partitionKeyFromLambda:processing\_date\}/}
+\vspace{0.1cm}
+\begin{center}
+\textit{raw/laureates/processing\_date=!{partitionKeyFromLambda:processing\_date}}
+\end{center}
+\vspace{0.1cm}
 
-Esto resulta en que los archivos se guarden automáticamente en rutas como \texttt{raw/laureates/processing\_date=2025-01-01/}. Este esquema de particionado "Hive-style" (clave=valor) es un estándar en Big Data que optimiza enormemente el rendimiento de los Crawlers de Glue y las consultas posteriores en Athena, ya que permite "podar" particiones innecesarias al leer datos.
+Esto resulta en que los archivos se guarden automáticamente en rutas como \texttt{raw/laureates/processing\_date=2025-01-01/}, por ejemplo. Este esquema de particionado conformado por parejas clave-valor optimiza enormemente el rendimiento de los Crawlers de Glue y las consultas posteriores en AWS Athena, ya que permite podar o deshacerse de particiones innecesarias al leer datos.
 
-Además, se configuraron opciones de \textit{Buffering} (64 MB o 60 segundos) para agrupar múltiples registros pequeños en archivos más grandes, mejorando la eficiencia de E/S en S3.
+Además, tal y como se refleja en el script de despliegue de la arquitectura, se configuraron opciones de \textit{Buffering} (conformadas por 64 MB o 60 segundos) para agrupar múltiples registros pequeños en archivos más grandes, mejorando la eficiencia de la entrada/salida en S3.
 
 \begin{figure}[h]
     \centering
@@ -250,13 +263,14 @@ Además, se configuraron opciones de \textit{Buffering} (64 MB o 60 segundos) pa
 
 \subsection{Configuración de AWS Glue}
 
-AWS Glue es el componente final que cataloga y procesa los datos almacenados en S3. Su implementación se divide en dos fases: descubrimiento de esquema (Crawlers) y transformación de datos (Jobs ETL).
+El componente final que conformará esta memoria es AWS Glue, el cual se encarga de catalogar y procesar los datos almacenados en S3. Su implementación se divide en dos etapas, la del descubrimiento de esquema y la de la transformación de datos. Seguidamente, se exponen dichas etapas de manera respectiva:
 
-\subsubsection{Crawlers y Catálogo de Datos}
-Se han configurado dos Crawlers:
+\subsubsection{Crawlers y catálogo de datos}
+Para este proyecto, se han configurado dos crawlers:
 \begin{enumerate}
-    \item \textbf{laureates-raw-crawler}: Apunta a la ruta \texttt{s3://.../raw/laureates/}. Su función es leer los archivos JSON generados por Firehose, inferir el esquema (campos como \textit{id, first\_name, surname, category, year}, etc.) y crear una tabla en la base de datos \texttt{laureates\_db} del Glue Data Catalog.
-    \item \textbf{laureates-processed-crawler}: Apunta a la ruta \texttt{processed/}. Este se ejecuta después de los trabajos ETL para catalogar las nuevas tablas de datos agregados.
+    \item \textbf{laureates-raw-crawler}: Apunta a la ruta \texttt{s3://.../raw/laureates/}. Su función es leer los archivos JSON generados por Firehose, inferir el esquema (que presenta campos como \textit{id, first\_name, category}, entre otros) y crear una tabla en la base de datos \texttt{laureates\_db} del Glue Data Catalog.
+
+    \item \textbf{laureates-processed-crawler}: A diferencia del anterior, este apunta a la ruta \texttt{processed/}. Este se ejecuta después de los jobs ETL para catalogar las nuevas tablas de datos agregados.
 \end{enumerate}
 
 El uso de Crawlers automatiza la gestión de metadatos; si el esquema de los datos JSON cambiara en el futuro (por ejemplo, si se añadiera un nuevo campo al JSON de origen), el Crawler podría actualizar la definición de la tabla automáticamente en la siguiente ejecución.
