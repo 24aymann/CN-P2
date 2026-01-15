@@ -15,6 +15,8 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{caption}
+\usepackage{parskip}
+\usepackage{ragged2e} % Librería para texto justificado
 
 % Configuración de página
 \geometry{
@@ -23,26 +25,30 @@
     left=2.5cm,
     right=2.5cm
 }
-
 \onehalfspacing
-
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[R]{Ayman Asbai Ghoudan}
+\fancyhead[R]{Computación en la Nube - Práctica Obligatoria 2}
 \fancyfoot[C]{Página \thepage\ de \pageref{LastPage}}
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0pt}
 
 % Conteo del total de páginas
 \usepackage{lastpage}
-
 % Configuración de fuentes para títulos
 \titleformat{\section}
-  {\normalfont\sffamily\bfseries\fontsize{14}{17}\selectfont}{\thesection}{1em}{}
+    {\normalfont\sffamily\bfseries\fontsize{14}{17}\selectfont}
+    {\thesection}{1em}{}
 \titleformat{\subsection}
-  {\normalfont\sffamily\bfseries\fontsize{13}{16}\selectfont}{\thesubsection}{1em}{}
+    {\normalfont\sffamily\bfseries\fontsize{13}{16}\selectfont}
+    {\thesubsection}{0.8em}{}
 \titleformat{\subsubsection}
-  {\normalfont\sffamily\bfseries\fontsize{12}{15}\selectfont}{\thesubsubsection}{1em}{}
+    {\normalfont\sffamily\bfseries\fontsize{12}{15}\selectfont}{\thesubsubsection}{0.8em}{}
+
+% Espaciado de párrafos
+\titlespacing*{\section}{0pt}{12pt}{0pt}
+\titlespacing*{\subsection}{0pt}{12pt}{0pt}
+\titlespacing*{\subsubsection}{0pt}{12pt}{0pt}
 
 % Configuración de bloques de código
 \definecolor{codegray}{rgb}{0.96,0.96,0.96}
@@ -87,25 +93,27 @@
     \vspace{0.5cm}
     {\large GRADO EN INGENIERÍA INFORMÁTICA} \\
     
-    \vspace{2cm}
+    \vspace{2.5cm}
     
     {\Large \textbf{COMPUTACIÓN EN LA NUBE - PRÁCTICA OBLIGATORIA 2}} \\
-    \vspace{1cm}
+    \vspace{0.5cm}
     {\Large \textbf{INGESTA Y PROCESAMIENTO DE DATOS EN AWS}} \\
     
     \vspace{3cm}
     \begin{center}
     \includegraphics[width=7cm]{icon.png}
     \end{center}
-    \vspace{3cm}
+    \vspace{4cm}
 
     
     \raggedleft
     {\large Ayman Asbai Ghoudan} \\   
-    {\large Curso 2025/26} \\
+    {\large Curso académico 2025/26} \\
     
     \vfill
 \end{titlepage}
+\justifying
+\setlength{\parindent}{0pt}
 
 % -----------------------
 % -------- ÍNDICE -------
@@ -128,18 +136,18 @@ Para llevar esto a cabo, se ha ido desarrollando una arquitectura de procesamien
 Además de ello, se ha simulado un escenario de streaming de datos utilizando un conjunto de datos que recoge los ganadores de premios Nobel desde 1901 hasta 2016. El flujo de trabajo implementado cubre el ciclo de vida completo del dato, tal que:
 
 \begin{enumerate}
-    \item \textbf{Ingesta de Datos:} Se utiliza un script (REFERENCE) de Python para simular un productor que inyecta registros en tiempo real hacia \textit{Amazon Kinesis Data Streams}, un servicio altamente escalable para el procesamiento de flujos de datos.
+    \item \textbf{Ingesta de Datos:} Se utiliza un script \texttt{kinesis.py} de Python para simular un productor que inyecta registros en tiempo real hacia \textit{Amazon Kinesis Data Streams}, un servicio altamente escalable para el procesamiento de flujos de datos.
     \item \textbf{Almacenamiento y Transformación Intermedia:} A través de \textit{Amazon Kinesis Firehose}, los datos son recogidos del stream, transformados ligeramente mediante una función de \textit{AWS Lambda} para permitir un particionado dinámico eficiente, y finalmente depositados en un datalake alojado en \textit{Amazon S3}.
-    \item \textbf{Catalogación y ETL:} Una vez los datos residen en S3, se utiliza \textit{AWS Glue}. En primer lugar, los \textit{crawlers} de Glue descubren automáticamente el esquema de los datos. En segundo lugar, se ejecutan \textit{jobs} ETL para agregar y analizar la información (uno de los casos utilizados en esta práctica ha sido obtener métricas a raíz del género), depositando los resultados procesados nuevamente en S3 en formato \textit{parquet}.
+    \item \textbf{Catalogación y ETL:} Una vez los datos residen en S3, se utiliza \textit{AWS Glue}. En primer lugar, los \textit{crawlers} de Glue descubren automáticamente el esquema de los datos. En segundo lugar, se ejecutan \textit{jobs ETL} para agregar y analizar la información (uno de los casos utilizados en esta práctica ha sido obtener métricas a raíz del género), depositando los resultados procesados nuevamente en S3 en formato \textit{parquet}.
 \end{enumerate}
 
 De este modo, la arquitectura planteada permite separar adecuadamente las responsabilidades y lograr el objetivo de la práctica.
 
 \newpage
 
-% ------------------------------------
-% --- DESARROLLO DE LAS ACTIVIDADES --
-% ------------------------------------
+% -------------------------------------
+% --- DESARROLLO DE LAS ACTIVIDADES ---
+% -------------------------------------
 
 \section{Desarrollo de las actividades}
 
@@ -151,7 +159,9 @@ En este apartado de la memoria del trabajo, se detallarán cada uno de los pasos
 
 Su relevancia radica no solo en la persistencia de los datos, sino en su capacidad para integrarse de forma nativa con servicios de análisis y procesamiento como AWS Glue y Amazon Athena.
 
-El primer paso para consolidar el mencionado datalake es la creación de un bucket en Amazon S3, el cual servirá como repositorio central tanto para los datos crudos como para los datos procesados y los scripts de configuración. La particularidad de este servicio de AWS es que debe disponer de un nombre único no sólo en términos de la cuenta de usuario, sino en toda la plataforma. De esta manera, cada bucket puede ser accedido mediante URLs como, por ejemplo:
+El primer paso para consolidar el mencionado datalake es la creación de un bucket en Amazon S3, el cual servirá como repositorio central tanto para los datos crudos como para los datos procesados y los scripts de configuración.
+
+La particularidad de este servicio de AWS es que debe disponer de un nombre único no sólo en términos de la cuenta de usuario, sino en toda la plataforma. De esta manera, cada bucket puede ser accedido mediante URLs como, por ejemplo:
 
 \vspace{0.25cm}
 \centerline{\textit{https://<nombre-del-bucket>.s3.amazonaws.com}}
@@ -166,7 +176,9 @@ Es por ello que se ha seguido este patrón y se ha decidido configurar el mismo 
     \item \textbf{queries/} y \textbf{errors/}: Son carpetas auxiliares para guardar consultas de Athena o registros de errores generados por Kinesis Firehose si fallase la transformación o entrega.
 \end{itemize}
 
-Esta separación de carpetas es fundamental para evitar mezclar datos de diferentes módulos de procesamiento y para simplificar la configuración de los crawlers de Glue, que pueden apuntar a carpetas específicas sin riesgo de leer archivos de configuración como si fueran datos. Cabe destacar que no todas estas carpetas tienen uso actualmente, dado que están impuestas con visión a futuro para mejoras e integraciones, tales como puede ser AWS Athena, la cual permite ejecutar consultas/queries directamente sobre datos almacenados en el bucket de S3.
+Esta separación de carpetas es fundamental para evitar mezclar datos de diferentes módulos de procesamiento y para simplificar la configuración de los crawlers de Glue, que pueden apuntar a carpetas específicas sin riesgo de leer archivos de configuración como si fueran datos.
+
+Cabe destacar que no todas estas carpetas tienen uso actualmente, dado que están impuestas con visión a futuro para mejoras e integraciones, tales como puede ser AWS Athena, la cual permite ejecutar consultas/queries directamente sobre datos almacenados en el bucket de S3.
 
 \begin{figure}[h]
     \centering
@@ -217,7 +229,7 @@ Este enfoque permite verificar en tiempo real cómo la métrica de \textit{Incom
 
 % ===================================================
 
-\subsection{Configuración del consumidor (Kinesis Firehose)}
+\subsection{Configuración del consumidor: Kinesis Firehose}
 
 Como consumidor del stream de datos, se ha configurado el recurso Amazon Kinesis Data Firehose. Firehose, es un servicio de entrega totalmente gestionado que, en la presente arquitectura, no hace más que capturar los datos del stream y los deposita en el bucket de S3.
 
@@ -273,18 +285,30 @@ Para este proyecto, se han configurado dos crawlers:
     \item \textbf{laureates-processed-crawler}: A diferencia del anterior, este apunta a la ruta \texttt{processed/}. Este se ejecuta después de los jobs ETL para catalogar las nuevas tablas de datos agregados.
 \end{enumerate}
 
-El uso de Crawlers automatiza la gestión de metadatos; si el esquema de los datos JSON cambiara en el futuro (por ejemplo, si se añadiera un nuevo campo al JSON de origen), el Crawler podría actualizar la definición de la tabla automáticamente en la siguiente ejecución.
+El uso de Crawlers automatiza la gestión de los metadatos, de modo que si el esquema de los datos JSON cambiara en el futuro, el Crawler podría actualizar la definición de la tabla automáticamente en la siguiente ejecución. Un ejemplo de este caso podría ser una situación donde se añadiera un nuevo campo al JSON de origen.
 
-\subsubsection{Trabajos ETL (Extract, Transform, Load)}
-Se han desarrollado tres trabajos ETL utilizando **PySpark**, que aprovechan la capacidad de procesamiento distribuido de Glue (Apache Spark gestionado). Estos scripts leen la tabla catalogada (\texttt{raw}), realizan agregaciones y escriben el resultado en formato Parquet.
+\subsubsection{ETL Jobs}
+Se han desarrollado tres jobs de ETL utilizando la librería de PySpark, los cuales aprovechan la capacidad de procesamiento distribuido de Glue. Los scripts que se observan a continuación, leen la tabla catalogada (\texttt{raw}), realizan agregaciones y escriben el resultado en formato Parquet. Cada una de estas acciones son las que conforman el nombre del recurso ETL, asociándose a: Extract, Transform y Load.
 
 \begin{itemize}
-    \item \textbf{Agregación por País (nobel\_aggregation\_by\_country.py):} Agrupa los datos por \texttt{birth\_country} y \texttt{category}, contando el número total de laureados. El resultado se escribe particionado por país, lo que facilita consultas geográficas.
-    \item \textbf{Agregación por Década (nobel\_aggregation\_decadal.py):} Calcula la década de cada premio a partir del campo \texttt{year} (ej. 1901 $\rightarrow$ 1900) y agrupa los resultados para mostrar tendencias temporales.
-    \item \textbf{Agregación por Género (nobel\_aggregation\_gender.py):} Analiza la distribución de premios entre hombres, mujeres y organizaciones, agrupando por \texttt{gender} y \texttt{category}.
+    \item \textbf{Agregación por país:} Agrupa los datos por \texttt{birth\_country} y \texttt{category}, contando el número total de premiados en este contexto. El resultado se escribe particionado por país, lo que facilita consultas geográficas, tales como podrían ser las regiones con más personas premiadas. (REFERENCE)
+
+    \item \textbf{Agregación por década:} Calcula la década de cada premio a partir del campo \texttt{year}, y agrupa los resultados para mostrar tendencias temporales. (REFERENCE)
+
+    \item \textbf{Agregación por género:} Analiza la distribución de premios entre hombres, mujeres y organizaciones, agrupando por \texttt{gender} y \texttt{category}. (REFERENCE)
 \end{itemize}
 
-Todos los trabajos siguen un patrón común: inicializan el \texttt{GlueContext}, crean un \textit{DynamicFrame} desde el catálogo, lo convierten a DataFrame de Spark para facilitar las transformaciones (filtrado, grouping, conteo), y finalmente escriben el resultado de nuevo a S3 utilizando \texttt{glueContext.write\_dynamic\_frame}. El uso del formato **Parquet** con compresión Snappy en la salida garantiza que los datos procesados ocupen menos espacio y sean mucho más rápidos de consultar que los JSON originales.
+Todos estos jobs siguen un patrón común y secuencial, que se basa en lo siguiente: 
+
+\begin{enumerate}
+    \item Inicializar el \texttt{GlueContext} y crear un \textit{DynamicFrame} desde el catálogo.
+
+    \item Convertir dicho DynamicFrame a un DataFrame de Spark para facilitar las transformaciones, que son el filtrado, "grouping" y conteo.
+
+    \item Escribir el resultado de nuevo a S3 utilizando \texttt{glueContext.write\_dynamic\_frame}.
+\end{enumerate}
+
+El uso del formato Parquet con compresión Snappy en la salida garantiza que los datos procesados ocupen menos espacio y sean mucho más rápidos de consultar que los JSON originales.
 
 \begin{lstlisting}[language=Python, caption=Lógica de agregación en PySpark (Ejemplo de script por país)]
 # Agrupar por pais de nacimiento y cataegoria
@@ -304,6 +328,116 @@ glueContext.write_dynamic_frame.from_options(
     format="parquet",
     format_options={"compression": "snappy"}
 )
+\end{lstlisting}
+\newpage
+
+% -----------------
+% ---- PRICING ----
+% -----------------
+%\section{Presupuesto y estimación de costes}
+
+% ----------------------
+% ---- CONCLUSIONES ----
+% ----------------------
+
+% ------------------------------------
+% ---- REFERENCIAS Y BIBLIOGRAFÍA ----
+% ------------------------------------
+
+% ----------------
+% ---- ANEXOS ----
+% ----------------
+
+\section{Anexos}
+
+A lo largo de la redacción de la presente memoria, se ha detectado que LaTeX genera ciertos problemas con algunos caracteres, como pueden ser las tildes y los emoticonos, impidiendo su correcta presentación. Por tanto, es posible que algunos de los ficheros que se listen a continuación pierdan formato.
+
+No obstante, antes de proceder con los scripts programados, también se adjunta un enlace al repositorio de GitHub en el que se ha estado implementando dicho proyecto, subsanando así cualquier inconveniente o molestia a la hora de revisar el código. También, es importante tener en cuenta que el archivo que conforma el dataset puede ser localizado 
+
+\vspace{0.1cm}
+\begin{center}
+\texttt{https://github.com/24aymann/CN-P2}
+\end{center}
+\vspace{0.1cm}
+
+Además de ello, se debe mencionar que los scripts implementados (tanto para el despliegue como la eliminación de los recursos) cubren todo el trabajo necesario para poder ejecutar la práctica. Esto implica que para corregir y testear el funcionamiento de la misma no hace falta más que:
+
+\begin{enumerate}
+    \item Ingresar las credenciales de su cuenta de AWS cuando manda a ejecutar el comando \texttt{aws configure}
+
+    \item Seguir las indicaciones que encuentra en el fichero (REFERENCE) para configurar su entorno virtual, si lo que se desea es lanzar la arquitectura.
+
+    \item Por último, ejecutar el script correspondiente.
+\end{enumerate}
+
+Sin más indicaciones que adjuntar, toda la implementación desarrollada en este proyecto se encuentra en la siguiente página, siguiendo el orden de aparición de la carpeta en la que se aloja.  
+
+\newpage
+\subsection{ETL Job - Nobel Aggregation by Country (\texttt{nobel\_aggregation\_by\_country.py})}
+\label{nobel_aggregation_by_country}
+\lstinputlisting[language=Bash, caption=Job 1 - Aggregation by country]{jobs/nobel_aggregation_by_country.py}
+
+\newpage
+\subsection{ETL Job - Nobel Aggregation Decadal (\texttt{nobel\_aggregation\_decadal.py})}
+\label{nobel_aggregation_decadal}
+\lstinputlisting[language=Bash, caption=Job 2 - Aggregation by decade]{jobs/nobel_aggregation_decadal.py}
+
+\newpage
+\subsection{ETL Job - Nobel Aggregation Gender (\texttt{nobel\_aggregation\_gender.py})}
+\label{nobel_aggregation_gender}
+\lstinputlisting[language=Bash, caption=Job 3 - Aggregation by gender]{jobs/nobel_aggregation_gender.py}
+
+\newpage
+\subsection{Script de eliminación de la arquitectura (\texttt{delete\_resources.sh})}
+\label{delete_script}
+\lstinputlisting[language=Bash, caption=Eliminación de recursos de la arquitectura completo]{scripts/delete_resources.sh}
+
+\subsection{Script de despliegue de la arquitectura (\texttt{deploy\_resources.sh})}
+\label{deployment_script}
+\lstinputlisting[language=Bash, caption=Despliegue de la arquitectura completo]{scripts/deploy_resources.sh}
+
+\newpage
+\subsection{Consumidor del stream de datos (\texttt{firehose.py})}
+\label{firehose}
+\lstinputlisting[language=Bash, caption=Consumidor del stream de datos]{firehose.py}
+
+\newpage
+\subsection{Productor de datos (\texttt{kinesis.py})}
+\label{kinesis}
+\lstinputlisting[language=Bash, caption=Productor de datos]{kinesis.py}
+
+\subsection{Función main (\texttt{main.py})}
+\label{main}
+\lstinputlisting[language=Bash, caption=El main de la práctica]{main.py}
+
+\subsection{Versión y dependencias necesarias del proyecto (\texttt{pyproject.toml})}
+\label{pyproject}
+\lstinputlisting[language=Bash, caption=Fichero con versión y dependencias necesarias]{pyproject.toml}
+
+\newpage
+\subsection{README elaborado}
+\label{readme}
+\lstinputlisting[language=Bash, caption=Presentación de la práctica y configuración del entorno]{README.md}
+
+\subsection{Lockfile de las dependencias en uso}
+\label{uv}
+\lstinputlisting[language=Bash, caption=Fichero que congela todas las dependencias del proyecto]{uv.lock}
+
+\subsection{Uso de la Inteligencia Artificial}
+Este apartado está planteado para definir aquellas facetas de la práctica en las que se haya beneficiado en mayor o menor medida de la Inteligencia Artificial.
+
+En primer lugar, en los comienzos de realización del proyecto, se hizo uso de la misma para una explicación breve del funcionamiento de cada uno de los recursos de AWS que se manifiestan en este documento. Esto se debe a la necesidad de tener referencias teóricas que explicasen los servicios utilizados, puesto que tras la última sesión de teoría, éstos no fueron publicados.
+
+En segundo lugar, los scripts de despliegue y eliminación de recursos de la arquitectura fueron ligeramente apoyados por la IA, especialmente en análisis de estado de los crawlers y jobs de Glue.
+
+Además de ello, el dataset seleccionado para este proyecto surge de una consulta a esta herramienta. En dicha consulta, se adjuntó el conjunto de datos de consumo energético proporcionado en el proyecto base y se solicitó un dataset con condiciones similares, respetando el límite de tener más de 864 registros.
+
+Por último, también se solicitó formatear la salida que se genera en la terminal con los registros que han sido enviados a Kinesis. Dicho formateo se presenta de la siguiente manera:
+
+\vspace{0.5cm}
+\begin{lstlisting}[language=Python, caption=Mensaje de log generado en el envío de datos]
+# Indicador de registro enviado, con salida formateada
+logger.info(f"( {year} - {category} )".ljust(23) + f"===>  �� {laureate_name} ��")
 \end{lstlisting}
 
 \end{document}
