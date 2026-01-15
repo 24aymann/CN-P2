@@ -22,7 +22,7 @@
 \geometry{
     top=2.5cm,
     bottom=2.5cm,
-    left=2.5cm,
+    left=3cm,
     right=2.5cm
 }
 \onehalfspacing
@@ -153,18 +153,21 @@ De este modo, la arquitectura planteada permite separar adecuadamente las respon
 
 En este apartado de la memoria del trabajo, se detallarán cada uno de los pasos que se han seguido para cumplir con la implementación de cada uno de los componentes de la arquitectura.
 
+% ===================================================
+% ===================================================
+
 \subsection{Configuración del bucket S3}
 
 \textit{Amazon Simple Storage Service} es considerado uno de los pilares fundamentales en el mundo de la computación en la nube dada su escalabilidad prácticamente ilimitada, su alta disponibilidad y su durabilidad. Al ser un servicio de almacenamiento de objetos, también conocido como "\textit{el cubo para todo}", permite desacoplar el almacenamiento del cómputo, una característica esencial en los ecosistemas de datos modernos.
 
-Su relevancia radica no solo en la persistencia de los datos, sino en su capacidad para integrarse de forma nativa con servicios de análisis y procesamiento como AWS Glue y Amazon Athena.
+Su relevancia radica no sólo en la persistencia de los datos, sino en su capacidad para integrarse de forma nativa con servicios de análisis y procesamiento como AWS Glue y Amazon Athena.
 
 El primer paso para consolidar el mencionado datalake es la creación de un bucket en Amazon S3, el cual servirá como repositorio central tanto para los datos crudos como para los datos procesados y los scripts de configuración.
 
 La particularidad de este servicio de AWS es que debe disponer de un nombre único no sólo en términos de la cuenta de usuario, sino en toda la plataforma. De esta manera, cada bucket puede ser accedido mediante URLs como, por ejemplo:
 
 \vspace{0.25cm}
-\centerline{\textit{https://<nombre-del-bucket>.s3.amazonaws.com}}
+\centerline{\texttt{https://<nombre-del-bucket>.s3.amazonaws.com}}
 \vspace{0.25cm}
 
 Es por ello que se ha seguido este patrón y se ha decidido configurar el mismo con un nombre característico como \textbf{datalake-laureates-<ID\_CUENTA>}, en el que, al incluir el ID de cuenta, se garantiza que no pueda haber ningún conflicto. Dentro de este bucket, se ha definido una estructura de directorios jerárquica para mantener el orden y facilitar las políticas de ciclo de vida y acceso. La estructura implementada es la que se aprecia a continucación:
@@ -176,26 +179,25 @@ Es por ello que se ha seguido este patrón y se ha decidido configurar el mismo 
     \item \textbf{queries/} y \textbf{errors/}: Son carpetas auxiliares para guardar consultas de Athena o registros de errores generados por Kinesis Firehose si fallase la transformación o entrega.
 \end{itemize}
 
-Esta separación de carpetas es fundamental para evitar mezclar datos de diferentes módulos de procesamiento y para simplificar la configuración de los crawlers de Glue, que pueden apuntar a carpetas específicas sin riesgo de leer archivos de configuración como si fueran datos.
+Esta separación de carpetas, la cual puede apreciarse visualmente con la Figura \ref{fig:s3_structure}, es fundamental para evitar mezclar datos de diferentes módulos de procesamiento y para simplificar la configuración de los crawlers de Glue, que pueden apuntar a carpetas específicas sin riesgo de leer archivos de configuración como si fueran datos.
 
 Cabe destacar que no todas estas carpetas tienen uso actualmente, dado que están impuestas con visión a futuro para mejoras e integraciones, tales como puede ser AWS Athena, la cual permite ejecutar consultas/queries directamente sobre datos almacenados en el bucket de S3.
 
 \begin{figure}[h]
     \centering
-    % \includegraphics[width=0.8\textwidth]{captura_s3_bucket.png} 
-    \fbox{\begin{minipage}{0.8\textwidth}
-        \centering
-        \vspace{1cm}
-        [INSERTAR CAPTURA DE PANTALLA DE LA CONSOLA S3 MOSTRANDO LA ESTRUCTURA DE CARPETAS AQUÍ]
-        \vspace{1cm}
-    \end{minipage}}
+    \includegraphics[width=0.8\textwidth]{s3.png}
     \caption{Estructura de carpetas creada en el bucket S3.}
     \label{fig:s3_structure}
 \end{figure}
 
+\newpage
+
+% ===================================================
+% ===================================================
+
 \subsection{Implementación del productor de datos}
 
-El servicio de transmisión de datos del que se hará uso en esta sección es \textbf{Amazon Kinesis Data Streams} y, además de ser masivamente escalable y duradero, está diseñado para capturar y procesar grandes volúmenes de datos en tiempo real. Dentro de la arquitectura del \textit{datalake de laureates}, Kinesis actúa como un \textit{buffer}, permitiendo desacoplar a los productores de datos de los consumidores.
+El servicio de transmisión de datos del que se hará uso en esta sección es \textbf{Amazon Kinesis Data Streams} y, además de ser masivamente escalable y duradero, está diseñado para capturar y procesar grandes volúmenes de datos en tiempo real. Dentro de la arquitectura del datalake de \textit{laureates}, Kinesis actúa como un búfer, permitiendo desacoplar a los productores de datos de los consumidores.
 
 Su funcionamiento se basa en \textbf{shards}, que se definen como fragmentos, los cuales proporcionan una capacidad de procesamiento dedicada, permitiendo una ingesta ordenada y segura. En este proyecto, el uso de Kinesis es fundamental para transformar una carga de datos estática en un flujo continuo de elementos, simulando un entorno de producción donde la información llega de manera continuada.
 
@@ -206,12 +208,13 @@ El diseño de este productor de datos incluye las siguientes características cl
     \item \textbf{Carga de datos:} Se procede a leer el archivo JSON completo que contiene información histórica de todos los premiados (comprendidos entre 1901-2016).
     \item \textbf{Envío continuo:} Recorre la lista de laureados y utiliza la librería \texttt{boto3} para realizar la llamada a \texttt{put\_record}, la cual se encarga de enviar a Kinesis el registro completo (con cada uno de los campos del registro: 'prize', 'full name', entre otros).
     \item \textbf{Clave de partición} Se utiliza el campo \texttt{Category} como clave de partición. Esto asegura que los registros de la misma categoría se dirijan preferentemente al mismo \textit{shard} (fragmento) de Kinesis, lo cual puede ser beneficioso si se quisiera mantener el orden dentro de una categoría. No obstante, en este caso se utiliza un sólo shard para la práctica.
-    \item \textbf{Simulación de un periodo de latencia:} También, en el script se ha añadido un \texttt{time.sleep(0.1)} entre envíos para evitar saturar el ancho de banda de subida y simular un flujo continuo de elementos, en lugar de una carga por lotes instantánea.
+    \item \textbf{Simulación de un periodo de latencia:} También, se ha añadido un \texttt{time.sleep(0.1)} en el script entre envíos para evitar saturar el ancho de banda de subida y simular un flujo continuo de elementos, en lugar de una carga por lotes instantánea.
 \end{itemize}
 
-A continuación, pese a que el proyecto completo se encuentre adjuntado al final del documento (REFERENCE), se muestra un extracto relevante del código del productor donde se realiza el envío del registro:
+\newpage
+A continuación, pese a que el proyecto completo se encuentre adjuntado al final del documento (ver anexo \ref{kinesis}), se muestra un extracto relevante del código del productor donde se realiza el envío del registro:
 
-\begin{lstlisting}[language=Python, caption=Extracto del script productor kinesis.py]
+\begin{lstlisting}[language=Python, caption=Extracto del script del productor de Kinesis (\ref{kinesis})]
 # Se itera sobre todos los laureados
 for laureate in laureates_list:
     category = laureate.get('Category', 'Unknown')
@@ -225,8 +228,9 @@ for laureate in laureates_list:
     # ... Log y sleep ...
 \end{lstlisting}
 
-Este enfoque permite verificar en tiempo real cómo la métrica de \textit{IncomingRecords} aumenta en la consola de Kinesis.
+Este enfoque permite verificar en tiempo real cómo la métrica de \texttt{IncomingRecords} aumenta en la consola de Kinesis.
 
+% ===================================================
 % ===================================================
 
 \subsection{Configuración del consumidor: Kinesis Firehose}
@@ -236,7 +240,7 @@ Como consumidor del stream de datos, se ha configurado el recurso Amazon Kinesis
 En cuanto a este caso, la configuración del (\texttt{laureates-delivery-stream}) incluye una funcionalidad avanzada y crucial para la organización del datalake: \textit{el particionado dinámico}.
 
 \subsubsection{Transformación con AWS Lambda}
-Para lograr este particionado, Firehose invoca una función AWS Lambda denominada \texttt{laureates-firehose-lambda}) antes de escribir en S3. El código de esta función, alojado en \texttt{firehose.py}, realiza secuencialmente lo siguiente:
+Para lograr este particionado, Firehose invoca una función \texttt{laureates-firehose-lambda}) de AWS Lambda antes de escribir en S3. El código de esta función, alojado en \texttt{firehose.py}, realiza secuencialmente lo siguiente:
 
 \begin{enumerate}
     \item Recibe un lote de registros codificados en Base64.
@@ -252,26 +256,16 @@ En la configuración del destino S3 dentro de Firehose, se ha definido el prefij
 
 \vspace{0.1cm}
 \begin{center}
-\textit{raw/laureates/processing\_date=!{partitionKeyFromLambda:processing\_date}}
+\texttt{raw/laureates/processing\_date=!{partitionKeyFromLambda:processing\_date}}
 \end{center}
 \vspace{0.1cm}
 
-Esto resulta en que los archivos se guarden automáticamente en rutas como \texttt{raw/laureates/processing\_date=2025-01-01/}, por ejemplo. Este esquema de particionado conformado por parejas clave-valor optimiza enormemente el rendimiento de los Crawlers de Glue y las consultas posteriores en AWS Athena, ya que permite podar o deshacerse de particiones innecesarias al leer datos.
+Esto resulta en que los archivos se guarden en rutas como \texttt{laureates-}\texttt{firehose-}\texttt{lambda}) automáticamente, por ejemplo. Este esquema de particionado conformado por parejas clave-valor optimiza enormemente el rendimiento de los Crawlers de Glue y las consultas posteriores en AWS Athena, ya que permite podar o deshacerse de particiones innecesarias al leer datos.
 
 Además, tal y como se refleja en el script de despliegue de la arquitectura, se configuraron opciones de \textit{Buffering} (conformadas por 64 MB o 60 segundos) para agrupar múltiples registros pequeños en archivos más grandes, mejorando la eficiencia de la entrada/salida en S3.
 
-\begin{figure}[h]
-    \centering
-    % \includegraphics[width=0.8\textwidth]{captura_firehose.png}
-    \fbox{\begin{minipage}{0.8\textwidth}
-        \centering
-        \vspace{1cm}
-        [INSERTAR CAPTURA DE PANTALLA DE LA CONFIGURACIÓN DE FIREHOSE O MONITORIZACIÓN AQUÍ]
-        \vspace{1cm}
-    \end{minipage}}
-    \caption{Monitorización del delivery stream de Firehose.}
-    \label{fig:firehose_config}
-\end{figure}
+% ===================================================
+% ===================================================
 
 \subsection{Configuración de AWS Glue}
 
@@ -291,11 +285,11 @@ El uso de Crawlers automatiza la gestión de los metadatos, de modo que si el es
 Se han desarrollado tres jobs de ETL utilizando la librería de PySpark, los cuales aprovechan la capacidad de procesamiento distribuido de Glue. Los scripts que se observan a continuación, leen la tabla catalogada (\texttt{raw}), realizan agregaciones y escriben el resultado en formato Parquet. Cada una de estas acciones son las que conforman el nombre del recurso ETL, asociándose a: Extract, Transform y Load.
 
 \begin{itemize}
-    \item \textbf{Agregación por país:} Agrupa los datos por \texttt{birth\_country} y \texttt{category}, contando el número total de premiados en este contexto. El resultado se escribe particionado por país, lo que facilita consultas geográficas, tales como podrían ser las regiones con más personas premiadas. (REFERENCE)
+    \item \textbf{Agregación por país:} Agrupa los datos por \texttt{birth\_country} y \texttt{category}, contando el número total de premiados en este contexto. El resultado se escribe particionado por país, lo que facilita consultas geográficas, tales como podrían ser las regiones con más personas premiadas. (Anexo \ref{nobel_aggregation_by_country})
 
-    \item \textbf{Agregación por década:} Calcula la década de cada premio a partir del campo \texttt{year}, y agrupa los resultados para mostrar tendencias temporales. (REFERENCE)
+    \item \textbf{Agregación por década:} Calcula la década de cada premio a partir del campo \texttt{year}, y agrupa los resultados para mostrar tendencias temporales. (Anexo \ref{nobel_aggregation_decadal})
 
-    \item \textbf{Agregación por género:} Analiza la distribución de premios entre hombres, mujeres y organizaciones, agrupando por \texttt{gender} y \texttt{category}. (REFERENCE)
+    \item \textbf{Agregación por género:} Analiza la distribución de premios entre hombres, mujeres y organizaciones, agrupando por \texttt{gender} y \texttt{category}. (Anexo \ref{nobel_aggregation_gender})
 \end{itemize}
 
 Todos estos jobs siguen un patrón común y secuencial, que se basa en lo siguiente: 
@@ -308,9 +302,10 @@ Todos estos jobs siguen un patrón común y secuencial, que se basa en lo siguie
     \item Escribir el resultado de nuevo a S3 utilizando \texttt{glueContext.write\_dynamic\_frame}.
 \end{enumerate}
 
-El uso del formato Parquet con compresión Snappy en la salida garantiza que los datos procesados ocupen menos espacio y sean mucho más rápidos de consultar que los JSON originales.
+El uso del formato Parquet con compresión Snappy en la salida garantiza que los datos procesados ocupen menos espacio y, además, sean mucho más rápidos de consultar que los JSON originales.
 
-\begin{lstlisting}[language=Python, caption=Lógica de agregación en PySpark (Ejemplo de script por país)]
+\vspace{0.5cm}
+\begin{lstlisting}[language=Python, caption=Lógica del job by\_country en PySpark (\ref{nobel_aggregation_by_country})]
 # Agrupar por pais de nacimiento y cataegoria
 aggregated_df = df.filter(col("birth_country") != "") \
     .groupBy("birth_country", "category") \
@@ -340,9 +335,24 @@ glueContext.write_dynamic_frame.from_options(
 % ---- CONCLUSIONES ----
 % ----------------------
 
+
 % ------------------------------------
 % ---- REFERENCIAS Y BIBLIOGRAFÍA ----
 % ------------------------------------
+\section{Referencias y bibliografía}
+
+En cuanto a las referencias que han sido utilizadas para llevar a cabo el desarrollo de la práctica, además del uso de la IA registrado en el punto \ref{ia}, se encuentran las siguientes:
+
+\begin{itemize}
+    \item \href{https://docs.aws.amazon.com/streams/latest/dev/introduction.html}{Amazon Web Services. What is Amazon Kinesis Data Streams?}
+
+    \item \href{https://docs.aws.amazon.com/streams/latest/dev/kdf-consumer.html}{Amazon Web Services. Develop consumers using Amazon Data Firehose}
+
+    \item \href{https://docs.aws.amazon.com/glue/latest/dg/author-glue-job.html}{Amazon Web Services. Working with jobs in AWS Glue}
+
+    \item \href{https://calculator.aws}{Amazon Web Services. AWS Pricing calculator}
+
+\end{itemize}
 
 % ----------------
 % ---- ANEXOS ----
@@ -365,7 +375,7 @@ Además de ello, se debe mencionar que los scripts implementados (tanto para el 
 \begin{enumerate}
     \item Ingresar las credenciales de su cuenta de AWS cuando manda a ejecutar el comando \texttt{aws configure}
 
-    \item Seguir las indicaciones que encuentra en el fichero (REFERENCE) para configurar su entorno virtual, si lo que se desea es lanzar la arquitectura.
+    \item Seguir las indicaciones que encuentra en el fichero README.md (\ref{readme}) para configurar su entorno virtual, si lo que se desea es lanzar la arquitectura.
 
     \item Por último, ejecutar el script correspondiente.
 \end{enumerate}
@@ -415,7 +425,7 @@ Sin más indicaciones que adjuntar, toda la implementación desarrollada en este
 \lstinputlisting[language=Bash, caption=Fichero con versión y dependencias necesarias]{pyproject.toml}
 
 \newpage
-\subsection{README elaborado}
+\subsection{README elaborado para la preparación del entorno}
 \label{readme}
 \lstinputlisting[language=Bash, caption=Presentación de la práctica y configuración del entorno]{README.md}
 
@@ -424,6 +434,7 @@ Sin más indicaciones que adjuntar, toda la implementación desarrollada en este
 \lstinputlisting[language=Bash, caption=Fichero que congela todas las dependencias del proyecto]{uv.lock}
 
 \subsection{Uso de la Inteligencia Artificial}
+\label{ia}
 Este apartado está planteado para definir aquellas facetas de la práctica en las que se haya beneficiado en mayor o menor medida de la Inteligencia Artificial.
 
 En primer lugar, en los comienzos de realización del proyecto, se hizo uso de la misma para una explicación breve del funcionamiento de cada uno de los recursos de AWS que se manifiestan en este documento. Esto se debe a la necesidad de tener referencias teóricas que explicasen los servicios utilizados, puesto que tras la última sesión de teoría, éstos no fueron publicados.
@@ -437,7 +448,7 @@ Por último, también se solicitó formatear la salida que se genera en la termi
 \vspace{0.5cm}
 \begin{lstlisting}[language=Python, caption=Mensaje de log generado en el envío de datos]
 # Indicador de registro enviado, con salida formateada
-logger.info(f"( {year} - {category} )".ljust(23) + f"===>  {laureate_name}")
+logger.info(f"( {year} - {category} )".ljust(23) + f"===>  �� {laureate_name} ��")
 \end{lstlisting}
 
 \end{document}
