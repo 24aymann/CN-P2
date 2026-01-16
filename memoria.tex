@@ -185,7 +185,7 @@ Cabe destacar que no todas estas carpetas tienen uso actualmente, dado que está
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\textwidth]{s3.png}
+    \includegraphics[width=1\textwidth]{s3.png}
     \caption{Estructura de carpetas creada en el bucket S3.}
     \label{fig:s3_structure}
 \end{figure}
@@ -326,6 +326,23 @@ glueContext.write_dynamic_frame.from_options(
 \end{lstlisting}
 \newpage
 
+% ---------------------------
+% ---- DIAGRAMA DE FLUJO ----
+% ---------------------------
+\section{Diagrama del flujo de datos}
+En esta sección, se verá el prototipo de diagrama del flujo de datos diseñado para este caso.
+
+Tal y como se puede ver en la Figura \ref{fig:architecture}, se ha tratado de trasladar la arquitectura descrita a lo largo de este documento en este diagrama. 
+
+De manera resumida, se comienza con un productor que envía datos de premios Nobel en tiempo real a Amazon Kinesis Data Streams. Los datos pasan a Kinesis Firehose, que utiliza una función Lambda para añadir una fecha de procesamiento antes de guardarla y se depositan los datos crudos (es decir, los denotados como \textit{raw}) en la carpeta \texttt{/raw} de Amazon S3. Con un crawler de Glue se catalogan estos datos para que, seguidamente, los jobs de ETL los procesen y agreguen según corresponda (ya sea por país, género o por décadas). Finalmente, los datos procesados y optimizados se guardan nuevamente en Amazon S3, pero esta vez en una nueva carpeta \texttt{/processed}, listos para ser procesados.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1.1\textwidth]{Ingesta y procesamiento de datos en AWS.png}
+    \caption{Diseño de la arquitectura de Nobel Laureates.}
+    \label{fig:architecture}
+\end{figure}
+
 % -----------------
 % ---- PRICING ----
 % -----------------
@@ -334,13 +351,16 @@ glueContext.write_dynamic_frame.from_options(
 % ----------------------
 % ---- CONCLUSIONES ----
 % ----------------------
+\newpage
+\section{Conclusiones}
+
 Si bien la primera práctica obligatoria de la asignatura consistía en aprender a diseñar y desplegar una aplicación escalable por medio de servicios de AWS, llevar a cabo la realización de esta práctica, colabora de manera directa con el correcto aprendizaje acerca de la ingesta y el procesamiento de datos a gran escala. Tanto, que se han adquirido múltiples conocimientos del ecosistema de la computación en la nube a través de la implementación del ciclo de vida del dato, que va desde su propia ingesta hasta su transformación y almacenamiento final.
 
 Entre los principales recursos con los que se ha trabajado y aprendido durante este proyecto, se manifiesta \texttt{Amazon Kinesis} como la herramienta encargada del streaming de datos, permitiendo simular escenarios propios del mercado laboral actual gracias a su alta concurrencia.
 
-Asimismo, se tiene el uso de \texttt{AWS Glue}, puesto que se ha demostrado la eficiencia que gana una arquitectura a través de jobs de ETL, procesos capaces de mover y transformar datos desde una o más fuentes hasta un destino final. Y lo más llamativo es que no requiere de aprovisionar una infraestructura física.
+Asimismo, se tiene el uso de \texttt{AWS Glue}, puesto que se ha demostrado la eficiencia que gana una arquitectura a través de jobs de ETL, procesos capaces de mover y transformar datos desde una o más fuentes hasta un destino final. Y lo más llamativo es que no requiere del aprovisionamiento de una infraestructura física.
 
-También, a pesar de haber conocido este recurso anteriormente, se ha profundizado en el potencial que ofrece Amazon S3 comprobando cómo el particionado dinámico que realiza la función Lambda optimiza enormemente el rendimiento de las consultas posteriores.
+También, a pesar de haber conocido este recurso anteriormente, se ha profundizado en el potencial que ofrece Amazon S3, comprobando cómo el particionado dinámico que realiza la función Lambda optimiza enormemente el rendimiento de las consultas posteriores.
 
 Con respecto a las dificultades manifestadas en la realización del proyecto, únicamente mencionar los largos tiempos de espera entre el despliegue de recursos y su disponibilidad efectiva; ya que, por ejemplo, esperar a que un crawler termine conllevaba demasiado tiempo. En especial, cuando por cuestiones de testeo de ciertas funcionalidades de la práctica, se mandaba a ejecutar numerosas veces el código para la detección y tratamiento de errores.
 
@@ -349,6 +369,7 @@ En cuanto a posibles futuras extensiones del trabajo realizado, tal y como se co
 % ------------------------------------
 % ---- REFERENCIAS Y BIBLIOGRAFÍA ----
 % ------------------------------------
+\newpage
 \section{Referencias y bibliografía}
 
 En cuanto a las referencias que han sido utilizadas para llevar a cabo el desarrollo de la práctica, además del uso de la IA registrado en el punto \ref{ia}, se encuentran las siguientes:
@@ -408,13 +429,13 @@ Sin más indicaciones que adjuntar, toda la implementación desarrollada en este
 \lstinputlisting[language=Bash, caption=Job 3 - Aggregation by gender]{jobs/nobel_aggregation_gender.py}
 
 \newpage
-\subsection{Script de eliminación de la arquitectura (\texttt{delete\_resources.sh})}
+\subsection{Script de borrado de la arquitectura (\texttt{delete\_resources.sh})}
 \label{delete_script}
-\lstinputlisting[language=Bash, caption=Eliminación de recursos de la arquitectura completo]{scripts/delete_resources.sh}
+\lstinputlisting[language=Bash, caption=Eliminación de recursos de la arquitectura al completo]{scripts/delete_resources.sh}
 
 \subsection{Script de despliegue de la arquitectura (\texttt{deploy\_resources.sh})}
 \label{deployment_script}
-\lstinputlisting[language=Bash, caption=Despliegue de la arquitectura completo]{scripts/deploy_resources.sh}
+\lstinputlisting[language=Bash, caption=Despliegue de la arquitectura completa]{scripts/deploy_resources.sh}
 
 \newpage
 \subsection{Consumidor del stream de datos (\texttt{firehose.py})}
@@ -435,7 +456,7 @@ Sin más indicaciones que adjuntar, toda la implementación desarrollada en este
 \lstinputlisting[language=Bash, caption=Fichero con versión y dependencias necesarias]{pyproject.toml}
 
 \newpage
-\subsection{README elaborado para la preparación del entorno}
+\subsection{README.md elaborado para la preparación del entorno}
 \label{readme}
 \lstinputlisting[language=Bash, caption=Presentación de la práctica y configuración del entorno]{README.md}
 
