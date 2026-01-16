@@ -334,7 +334,17 @@ glueContext.write_dynamic_frame.from_options(
 % ----------------------
 % ---- CONCLUSIONES ----
 % ----------------------
+Si bien la primera práctica obligatoria de la asignatura consistía en aprender a diseñar y desplegar una aplicación escalable por medio de servicios de AWS, llevar a cabo la realización de esta práctica, colabora de manera directa con el correcto aprendizaje acerca de la ingesta y el procesamiento de datos a gran escala. Tanto, que se han adquirido múltiples conocimientos del ecosistema de la computación en la nube a través de la implementación del ciclo de vida del dato, que va desde su propia ingesta hasta su transformación y almacenamiento final.
 
+Entre los principales recursos con los que se ha trabajado y aprendido durante este proyecto, se manifiesta \texttt{Amazon Kinesis} como la herramienta encargada del streaming de datos, permitiendo simular escenarios propios del mercado laboral actual gracias a su alta concurrencia.
+
+Asimismo, se tiene el uso de \texttt{AWS Glue}, puesto que se ha demostrado la eficiencia que gana una arquitectura a través de jobs de ETL, procesos capaces de mover y transformar datos desde una o más fuentes hasta un destino final. Y lo más llamativo es que no requiere de aprovisionar una infraestructura física.
+
+También, a pesar de haber conocido este recurso anteriormente, se ha profundizado en el potencial que ofrece Amazon S3 comprobando cómo el particionado dinámico que realiza la función Lambda optimiza enormemente el rendimiento de las consultas posteriores.
+
+Con respecto a las dificultades manifestadas en la realización del proyecto, únicamente mencionar los largos tiempos de espera entre el despliegue de recursos y su disponibilidad efectiva; ya que, por ejemplo, esperar a que un crawler termine conllevaba demasiado tiempo. En especial, cuando por cuestiones de testeo de ciertas funcionalidades de la práctica, se mandaba a ejecutar numerosas veces el código para la detección y tratamiento de errores.
+
+En cuanto a posibles futuras extensiones del trabajo realizado, tal y como se comentó previamente en la memoria, una de las principales metas sería la integración de Amazon Athena para permitir consultas SQL directas sobre los datos procesados, dada su utilidad y potencial exclusivamente en entornos de alta complejidad donde la automatización juega un papel fundamental. Cabe destacar que este servicio no es automatizado por sí mismo, pero su integración de consultas, por ejemplo, con AWS Lambda puede desembocar en una arquitectura bastante eficiente. 
 
 % ------------------------------------
 % ---- REFERENCIAS Y BIBLIOGRAFÍA ----
